@@ -5,6 +5,7 @@ namespace Anonimizacion;
 use Anonimizacion\Contratos\ClasificadorSensible;
 use Anonimizacion\Contratos\Detector;
 use Anonimizacion\Contratos\RepositorioDeBoveda;
+use Anonimizacion\Excepciones\BovedaExpirada;
 
 class Anonimizador
 {
@@ -59,6 +60,24 @@ class Anonimizador
         $this->boveda->guardar($id, $boveda);
 
         return new Resultado(Veredicto::Permitido, $texto, $id, array_keys($tipos));
+    }
+
+    /**
+     * Reinserta los valores reales. Los marcadores de la respuesta deben ser un
+     * SUBCONJUNTO de los de la bóveda: uno que el modelo haya inventado se
+     * elimina, nunca se deja crudo ni se intenta adivinar a qué persona apunta.
+     *
+     * @throws BovedaExpirada
+     */
+    public function restaurar(string $respuesta, BovedaId $id): string
+    {
+        $boveda = $this->boveda->recuperar($id);
+
+        return preg_replace_callback(
+            '/\[[A-Z]+_\d+_[a-f0-9]{4}\]/u',
+            fn (array $c) => $boveda->resolver($c[0]) ?? '',
+            $respuesta,
+        ) ?? $respuesta;
     }
 
     /**
