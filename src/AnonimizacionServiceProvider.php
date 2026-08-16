@@ -47,6 +47,10 @@ class AnonimizacionServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if (config('anonimizacion.api.habilitada')) {
+            $this->loadRoutesFrom(__DIR__.'/../routes/api.php');
+        }
+
         $this->publishes([
             __DIR__.'/../config/anonimizacion.php' => config_path('anonimizacion.php'),
         ], 'anonimizacion-config');
