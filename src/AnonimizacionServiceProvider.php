@@ -2,7 +2,12 @@
 
 namespace Anonimizacion;
 
+use Anonimizacion\Contratos\ClasificadorSensible;
 use Anonimizacion\Contratos\RepositorioDeBoveda;
+use Anonimizacion\Detectores\DetectorEmail;
+use Anonimizacion\Detectores\DetectorFolio;
+use Anonimizacion\Detectores\DetectorRut;
+use Anonimizacion\Detectores\DetectorTelefono;
 use Illuminate\Support\ServiceProvider;
 
 class AnonimizacionServiceProvider extends ServiceProvider
@@ -19,6 +24,21 @@ class AnonimizacionServiceProvider extends ServiceProvider
         ));
 
         $this->app->bind(RepositorioDeBoveda::class, BovedaEnCache::class);
+
+        // Enlace por defecto: nunca veta. El ciclo 1B lo sustituye por el
+        // clasificador real sin que ningún consumidor cambie una línea.
+        $this->app->bind(ClasificadorSensible::class, SinClasificador::class);
+
+        $this->app->bind(Anonimizador::class, fn ($app) => new Anonimizador(
+            [
+                new DetectorRut,
+                new DetectorTelefono,
+                new DetectorEmail,
+                new DetectorFolio((string) config('anonimizacion.patron_folio')),
+            ],
+            $app->make(RepositorioDeBoveda::class),
+            $app->make(ClasificadorSensible::class),
+        ));
     }
 
     public function boot(): void
