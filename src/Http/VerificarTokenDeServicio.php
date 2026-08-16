@@ -5,6 +5,7 @@ namespace Anonimizacion\Http;
 use Anonimizacion\Excepciones\ApiSinTokens;
 use Closure;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class VerificarTokenDeServicio
 {
@@ -43,9 +44,13 @@ class VerificarTokenDeServicio
         return $tokens;
     }
 
-    public function handle(Request $request, Closure $next)
+    public function handle(Request $request, Closure $next): Response
     {
-        $consumidor = $this->consumidorDe((string) $request->header('X-Service-Token', ''));
+        // header() puede devolver array, string o null: se acepta solo el caso
+        // string, cualquier otro se trata como token ausente.
+        $recibido = $request->header('X-Service-Token');
+
+        $consumidor = $this->consumidorDe(is_string($recibido) ? $recibido : '');
 
         if ($consumidor === null) {
             return response()->json(['error' => 'token inválido'], 401);

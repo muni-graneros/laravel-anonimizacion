@@ -5,13 +5,13 @@ namespace Anonimizacion;
 use Anonimizacion\Contratos\RepositorioDeBoveda;
 use Anonimizacion\Excepciones\BovedaExpirada;
 use Illuminate\Contracts\Cache\Factory as Cache;
-use Illuminate\Contracts\Encryption\Encrypter;
+use Illuminate\Contracts\Encryption\StringEncrypter;
 
 class BovedaEnCache implements RepositorioDeBoveda
 {
     public function __construct(
         private readonly Cache $cache,
-        private readonly Encrypter $cifrador,
+        private readonly StringEncrypter $cifrador,
         private readonly string $store,
         private readonly int $ttl,
     ) {}
