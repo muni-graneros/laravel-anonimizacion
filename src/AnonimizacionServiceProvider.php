@@ -3,6 +3,7 @@
 namespace Anonimizacion;
 
 use Anonimizacion\Contratos\ClasificadorSensible;
+use Anonimizacion\Contratos\RegistroDeAuditoria;
 use Anonimizacion\Contratos\RepositorioDeBoveda;
 use Anonimizacion\Detectores\DetectorEmail;
 use Anonimizacion\Detectores\DetectorFolio;
@@ -29,6 +30,8 @@ class AnonimizacionServiceProvider extends ServiceProvider
         // clasificador real sin que ningún consumidor cambie una línea.
         $this->app->bind(ClasificadorSensible::class, SinClasificador::class);
 
+        $this->app->bind(RegistroDeAuditoria::class, fn ($app) => new AuditoriaEnLog($app['log']));
+
         $this->app->bind(Anonimizador::class, fn ($app) => new Anonimizador(
             [
                 new DetectorRut,
@@ -38,6 +41,7 @@ class AnonimizacionServiceProvider extends ServiceProvider
             ],
             $app->make(RepositorioDeBoveda::class),
             $app->make(ClasificadorSensible::class),
+            $app->make(RegistroDeAuditoria::class),
         ));
     }
 

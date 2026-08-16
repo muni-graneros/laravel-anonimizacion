@@ -4,6 +4,7 @@ namespace Anonimizacion;
 
 use Anonimizacion\Contratos\ClasificadorSensible;
 use Anonimizacion\Contratos\Detector;
+use Anonimizacion\Contratos\RegistroDeAuditoria;
 use Anonimizacion\Contratos\RepositorioDeBoveda;
 use Anonimizacion\Excepciones\BovedaExpirada;
 
@@ -14,6 +15,7 @@ class Anonimizador
         private readonly array $detectores,
         private readonly RepositorioDeBoveda $boveda,
         private readonly ClasificadorSensible $clasificador,
+        private readonly RegistroDeAuditoria $auditoria,
     ) {}
 
     public function amordazar(string $texto): Resultado
@@ -23,6 +25,8 @@ class Anonimizador
         $categoria = $this->clasificador->categoriaDe($texto);
 
         if ($categoria !== null) {
+            $this->auditoria->registrar('pii.vetado', ['categoria' => $categoria]);
+
             return Resultado::vetado($categoria);
         }
 
@@ -59,6 +63,11 @@ class Anonimizador
         $id = BovedaId::nueva();
         $this->boveda->guardar($id, $boveda);
 
+        $this->auditoria->registrar('pii.amordazado', [
+            'tipos' => array_keys($tipos),
+            'cantidad' => count($hallazgos),
+        ]);
+
         return new Resultado(Veredicto::Permitido, $texto, $id, array_keys($tipos));
     }
 
@@ -72,6 +81,10 @@ class Anonimizador
     public function restaurar(string $respuesta, BovedaId $id): string
     {
         $boveda = $this->boveda->recuperar($id);
+
+        $this->auditoria->registrar('pii.restaurado', [
+            'marcadores' => count($boveda->marcadores()),
+        ]);
 
         return preg_replace_callback(
             '/\[[A-Z]+_\d+_[a-f0-9]{4}\]/u',
