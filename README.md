@@ -98,6 +98,10 @@ curl -s https://mi-sistema.local/anonimizacion/health
 el permiso explícito. El token es servicio a servicio y **nunca** debe llegar al
 navegador.
 
+El límite es de **60 peticiones por minuto y por consumidor**, no por IP: todos
+los sistemas del ecosistema salen por la misma IP interna, así que contar por IP
+haría que un consumidor ruidoso dejara sin cuota a los demás.
+
 ## Variables de entorno
 
 | Variable | Por defecto | Para qué |
