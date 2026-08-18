@@ -35,6 +35,10 @@ class ProveedorAnonimizado implements ProveedorExterno
 
     public function veredictoDe(string $texto): Veredicto
     {
-        return $this->anonimizador->amordazar($texto)->veredicto;
+        // Solo clasifica: pedir el veredicto no debe crear una bóveda ni
+        // escribir datos personales en el store.
+        return $this->anonimizador->categoriaSensibleDe($texto) === null
+            ? Veredicto::Permitido
+            : Veredicto::Vetado;
     }
 }

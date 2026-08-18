@@ -9,6 +9,9 @@ use Anonimizacion\Detectores\DetectorEmail;
 use Anonimizacion\Detectores\DetectorFolio;
 use Anonimizacion\Detectores\DetectorRut;
 use Anonimizacion\Detectores\DetectorTelefono;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AnonimizacionServiceProvider extends ServiceProvider
@@ -47,6 +50,12 @@ class AnonimizacionServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // El límite cuenta por consumidor y no por IP: todos los sistemas
+        // del ecosistema salen por la misma IP interna, así que un consumidor
+        // ruidoso dejaría sin cuota a los demás.
+        RateLimiter::for('anonimizacion', fn (Request $request) => Limit::perMinute(60)
+            ->by((string) $request->attributes->get('consumidor', $request->ip())));
+
         if (config('anonimizacion.api.habilitada')) {
             $this->loadRoutesFrom(__DIR__.'/../routes/api.php');
         }

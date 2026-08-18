@@ -41,7 +41,9 @@ class AnonimizacionController
 
         $datos = $request->validate([
             'texto' => ['required', 'string', 'max:20000'],
-            'boveda_id' => ['required', 'string'],
+            // El id va a la clave del store: solo se acepta el formato que
+            // genera el paquete (32 hexadecimales), nunca texto libre.
+            'boveda_id' => ['required', 'string', 'regex:/^[0-9a-f]{32}$/'],
         ]);
 
         return response()->json([

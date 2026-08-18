@@ -18,6 +18,15 @@ class Anonimizador
         private readonly RegistroDeAuditoria $auditoria,
     ) {}
 
+    /**
+     * Solo clasifica: no tokeniza, no crea bóveda y no escribe en el store.
+     * Sirve para decidir el camino antes de gastar trabajo.
+     */
+    public function categoriaSensibleDe(string $texto): ?string
+    {
+        return $this->clasificador->categoriaDe($texto);
+    }
+
     public function amordazar(string $texto): Resultado
     {
         // El veto va PRIMERO: si el texto trae dato sensible no sale, y no se
