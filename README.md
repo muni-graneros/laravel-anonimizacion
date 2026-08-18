@@ -128,6 +128,16 @@ La bóveda contiene datos personales. Antes de desplegar:
    `APP_KEY` del sistema — rotarla invalida las bóvedas vivas, que expiran solas
    en 15 minutos.
 
+**La clave real en Redis no es `anon:{id}`.** Laravel le antepone el prefijo del
+caché y el de la conexión, y termina siendo algo como
+`laravel-database-laravel-cache-anon:{id}`. Importa en dos momentos:
+
+- Para auditar o purgar bóvedas hay que buscar `*anon:*`, no `anon:*`.
+- El prefijo del caché es **compartido con toda la caché de la aplicación**, así
+  que un `php artisan cache:clear` se lleva las bóvedas vivas por delante. No
+  rompe nada — las peticiones en vuelo fallan con `BovedaExpirada` y el
+  ciudadano reintenta — pero explica un pico de errores tras un despliegue.
+
 **Fail-closed**: si la API está habilitada y `ANONIMIZACION_TOKENS` está vacío,
 el middleware se niega a construirse. Es deliberado: un `.env` mal copiado no
 puede dejar abierto un endpoint que des-anonimiza datos.

@@ -1,0 +1,10 @@
+# Lo que no tiene por qué viajar en el paquete instalado.
+/.github            export-ignore
+/docs               export-ignore
+/tests              export-ignore
+/tools              export-ignore
+/.gitattributes     export-ignore
+/.gitignore         export-ignore
+/phpstan.neon       export-ignore
+/phpunit.xml        export-ignore
+/pint.json          export-ignore

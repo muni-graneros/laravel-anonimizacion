@@ -220,6 +220,12 @@ Tres cuidados, no opcionales porque el contenido es PII:
 Además, la clase `Boveda` neutraliza `__toString()`, `__debugInfo()` y `jsonSerialize()`
 para que un `dd()` o un stack trace no la impriman.
 
+**Hallazgo al probar contra el motor real** (no lo mostraba el store de array): la
+clave que queda en Redis no es `anon:{id}` sino `laravel-database-laravel-cache-anon:{id}`
+— Laravel antepone el prefijo del caché y el de la conexión. Consecuencias: hay que
+buscar `*anon:*` para auditar o purgar, y un `cache:clear` de la aplicación borra las
+bóvedas vivas porque comparten prefijo con el resto de la caché.
+
 TTL por defecto: 15 minutos, configurable. Cubre una respuesta asíncrona por cola sin
 dejar el mapeo vivo más de lo necesario.
 

@@ -26,7 +26,12 @@
         }
     },
     "scripts": {
-        "test": "pest"
+        "test": "pest",
+        "test:redis": "tools/pest-redis.sh"
+    },
+    "scripts-descriptions": {
+        "test": "Suite completa contra el store de array.",
+        "test:redis": "La misma suite contra un Redis desechable. OBLIGATORIO antes de publicar: la boveda vive en Redis en produccion y el array no expira ni serializa de verdad."
     },
     "extra": {
         "laravel": {

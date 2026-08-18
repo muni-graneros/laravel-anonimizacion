@@ -4,6 +4,7 @@ use Anonimizacion\Boveda;
 use Anonimizacion\BovedaEnCache;
 use Anonimizacion\BovedaId;
 use Anonimizacion\Excepciones\BovedaExpirada;
+use Anonimizacion\Tests\TestCase;
 use Illuminate\Support\Facades\Cache;
 
 it('guarda y recupera el mapeo', function () {
@@ -26,7 +27,7 @@ it('guarda el contenido CIFRADO: el valor real nunca queda legible en el store',
     $id = BovedaId::nueva();
     app(BovedaEnCache::class)->guardar($id, $boveda);
 
-    $crudo = Cache::store('array')->get('anon:'.$id->valor);
+    $crudo = Cache::store(TestCase::storeDePrueba())->get('anon:'.$id->valor);
 
     expect($crudo)->toBeString()->not->toContain('12.345.678-5');
 });

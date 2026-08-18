@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  calidad:
+    runs-on: ubuntu-latest
+
+    # La suite corre DOS veces: contra el store de array y contra este Redis.
+    # El array no expira de verdad ni serializa a texto, así que por sí solo
+    # deja pasar defectos que en producción tumban la anonimización.
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: redis
+          coverage: none
+
+      - name: Instalar dependencias
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Estilo (Pint)
+        run: vendor/bin/pint --test
+
+      - name: Análisis estático (PHPStan nivel 8, sin baseline)
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+      - name: Pruebas contra el store de array
+        run: vendor/bin/pest
+
+      - name: Pruebas contra Redis real
+        env:
+          ANONIMIZACION_REDIS_HOST: 127.0.0.1
+          ANONIMIZACION_REDIS_PORT: 6379
+        run: vendor/bin/pest
+
+      - name: Verificar que sí corrió contra Redis
+        # Sin esto el paso anterior podría estar corriendo contra el array y
+        # felicitándose. Si corrió de verdad, quedaron bóvedas escritas.
+        run: |
+          CLAVES=$(redis-cli -h 127.0.0.1 -p 6379 --scan --pattern '*anon:*' | wc -l)
+          echo "Bóvedas escritas en Redis: $CLAVES"
+          test "$CLAVES" -gt 0
