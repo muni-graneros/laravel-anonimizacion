@@ -33,6 +33,11 @@ clasificador de dato sensible llegan en el ciclo 1B.
   y cantidades, nunca valores; los accesos por API llevan `ip_hash` con sal.
 - `composer test:redis`: la suite contra un Redis desechable, con verificación de
   que realmente corrió contra el motor.
+- **Corpus de evaluación y medición de cobertura** (`tests/CoberturaTest.php`):
+  publica en cada corrida cuánto detecta el motor por tipo. Línea base: RUT,
+  teléfono y correo al 100%, cero falsos positivos; nombres, direcciones y
+  categoría sensible al 0%, que es el ciclo 1B. Todos los datos del corpus son
+  inventados.
 
 ### Notas de despliegue
 

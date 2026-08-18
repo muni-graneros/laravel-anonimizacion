@@ -187,6 +187,28 @@ implementación que nunca veta (`SinClasificador`). El ciclo 1B la reemplaza por
 el clasificador real —y por la detección de nombres y direcciones— sin que
 ningún consumidor cambie una línea.
 
+### Cobertura medida, no supuesta
+
+`tests/CoberturaTest.php` corre el motor contra un corpus de mensajes ciudadanos
+(`tests/Corpus/mensajes.php`, **todo inventado** — nunca se versiona el mensaje ni
+el RUT de una persona real) y publica la medición en cada corrida:
+
+| Tipo | Detectado |
+|---|---|
+| RUT | 3/3 (100%) |
+| Teléfono | 3/3 (100%) |
+| Correo | 2/2 (100%) |
+| Nombre | 0/2 (0%) |
+| Dirección | 0/2 (0%) |
+| Categoría sensible | 0/3 (0%) |
+| **Falsos positivos** | **0** |
+
+Los tres ceros no son una sorpresa: son el ciclo 1B, anotados a propósito en el
+corpus para que el hueco quede **medido** y no supuesto. Cualquier herramienta que
+se evalúe para cubrirlos —Presidio, spaCy, lo que sea— se compara contra esta misma
+vara, con datos y no por catálogo. El test falla si se regresiona en lo que ya
+funciona o si aparece un falso positivo nuevo.
+
 ## Límites conocidos
 
 Se declaran para que nadie prometa de más:
