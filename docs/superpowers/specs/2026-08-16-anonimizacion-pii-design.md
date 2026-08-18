@@ -1,7 +1,7 @@
 # Anonimización de PII — diseño
 
 Fecha: 2026-08-16
-Estado: aprobado, pendiente de plan de implementación
+Estado: implementado en el ciclo 1A (v1.0.0). Ver CHANGELOG.md
 Repo: `buguenocesar92/laravel-anonimizacion` (privado)
 
 ## 1. Problema

@@ -35,6 +35,10 @@ class AnonimizacionServiceProvider extends ServiceProvider
 
         $this->app->bind(RegistroDeAuditoria::class, fn ($app) => new AuditoriaEnLog($app['log']));
 
+        $this->app->singleton(Metricas::class, fn ($app) => new Metricas(
+            $app['cache']->store((string) config('anonimizacion.store_boveda')),
+        ));
+
         $this->app->bind(Anonimizador::class, fn ($app) => new Anonimizador(
             [
                 new DetectorRut,

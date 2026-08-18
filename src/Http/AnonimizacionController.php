@@ -4,16 +4,32 @@ namespace Anonimizacion\Http;
 
 use Anonimizacion\Anonimizador;
 use Anonimizacion\BovedaId;
+use Anonimizacion\Contratos\RegistroDeAuditoria;
+use Anonimizacion\Metricas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class AnonimizacionController
 {
-    public function __construct(private readonly Anonimizador $anonimizador) {}
+    public const VERSION = '1.0.0';
+
+    /** Marca de arranque del proceso, para informar el tiempo en pie. */
+    private static ?float $inicio = null;
+
+    public function __construct(
+        private readonly Anonimizador $anonimizador,
+        private readonly Metricas $metricas,
+        private readonly RegistroDeAuditoria $auditoria,
+    ) {
+        self::$inicio ??= microtime(true);
+    }
 
     public function amordazar(Request $request): JsonResponse
     {
         $datos = $request->validate(['texto' => ['required', 'string', 'max:20000']]);
+
+        $this->metricas->contar($this->consumidorDe($request), 'amordazar');
 
         $resultado = $this->anonimizador->amordazar($datos['texto']);
 
@@ -46,6 +62,17 @@ class AnonimizacionController
             'boveda_id' => ['required', 'string', 'regex:/^[0-9a-f]{32}$/'],
         ]);
 
+        $consumidor = $this->consumidorDe($request);
+        $this->metricas->contar($consumidor, 'restaurar');
+
+        // Evento propio de la API, distinto de 'pii.restaurado' que emite el
+        // motor: registra QUIÉN des-anonimizó y desde dónde. La IP es dato
+        // personal, así que va un hash con sal (la APP_KEY), no la dirección.
+        $this->auditoria->registrar('pii.acceso_api', [
+            'consumidor' => $consumidor,
+            'ip_hash' => $this->hashDeIp((string) $request->ip()),
+        ]);
+
         return response()->json([
             'texto' => $this->anonimizador->restaurar($datos['texto'], new BovedaId($datos['boveda_id'])),
         ]);
@@ -55,7 +82,33 @@ class AnonimizacionController
     {
         return response()->json([
             'servicio' => 'anonimizacion',
+            'version' => self::VERSION,
+            'segundos_en_pie' => (int) (microtime(true) - (self::$inicio ?? microtime(true))),
             'tokens_cargados' => count(VerificarTokenDeServicio::cargarTokens()),
         ]);
+    }
+
+    public function metrics(): Response
+    {
+        return response($this->metricas->render(), 200, [
+            'Content-Type' => 'text/plain; version=0.0.4; charset=utf-8',
+        ]);
+    }
+
+    private function consumidorDe(Request $request): string
+    {
+        $consumidor = $request->attributes->get('consumidor');
+
+        return is_string($consumidor) ? $consumidor : 'desconocido';
+    }
+
+    /**
+     * Hash con sal de la IP: permite correlacionar accesos del mismo origen sin
+     * almacenar la dirección, que es dato personal. La sal es la APP_KEY, así
+     * que el hash no se puede cruzar entre instalaciones distintas.
+     */
+    private function hashDeIp(string $ip): string
+    {
+        return substr(hash_hmac('sha256', $ip, (string) config('app.key')), 0, 16);
     }
 }

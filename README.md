@@ -91,7 +91,13 @@ curl -s -X POST https://mi-sistema.local/anonimizacion/restaurar \
 
 # Salud (sin token)
 curl -s https://mi-sistema.local/anonimizacion/health
-# {"servicio":"anonimizacion","tokens_cargados":2}
+# {"servicio":"anonimizacion","version":"1.0.0","segundos_en_pie":184,"tokens_cargados":2}
+
+# Métricas Prometheus (CON token: el volumen por consumidor es información
+# de negocio, no algo que deba quedar abierto)
+curl -s https://mi-sistema.local/anonimizacion/metrics -H "X-Service-Token: $TOKEN"
+# # TYPE anonimizacion_peticiones_total counter
+# anonimizacion_peticiones_total{consumidor="licencias",operacion="amordazar"} 42
 ```
 
 `/restaurar` devuelve datos reales: tener un token válido no alcanza, hace falta
@@ -164,7 +170,11 @@ $this->app->bind(RegistroDeAuditoria::class, fn ($app) => new class($app->make(B
 ```
 
 Eventos: `pii.amordazado` (tipos y cantidad), `pii.vetado` (categoría),
-`pii.restaurado` (cantidad de marcadores).
+`pii.restaurado` (cantidad de marcadores) y `pii.acceso_api` (consumidor e
+`ip_hash`), que responde a quién des-anonimizó y desde dónde. La IP es dato
+personal, así que se guarda un hash con sal (la `APP_KEY`): permite correlacionar
+accesos del mismo origen sin almacenar la dirección, y no se puede cruzar entre
+instalaciones distintas.
 
 ## Qué cubre hoy
 
@@ -195,10 +205,17 @@ Se declaran para que nadie prometa de más:
 
 ```bash
 composer install
-composer test                                        # Pest
+composer test                                        # suite contra el store de array
+composer test:redis                                  # la misma suite contra un Redis real
 vendor/bin/pint                                      # estilo
 vendor/bin/phpstan analyse --memory-limit=1G         # nivel 8, sin baseline
 ```
+
+`composer test:redis` es **obligatorio antes de publicar una versión**: levanta un
+Redis desechable, corre la suite contra él y después comprueba que realmente corrió
+contra ese motor (si no quedaron bóvedas escritas, el verde no vale). El store de
+array no expira de verdad ni serializa a texto — probar solo contra él ya ocultó
+que la clave lleva prefijos y que phpredis prefija de nuevo al leer.
 
 Toda protección se comprueba quitándola: si al borrar la guarda el test sigue
 verde, el test no protege nada. La batería de `tests/JailbreakTest.php` y
