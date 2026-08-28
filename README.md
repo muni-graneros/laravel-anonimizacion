@@ -16,16 +16,16 @@ El paquete es privado, así que se declara el repositorio VCS:
 ```json
 {
     "repositories": [
-        { "type": "vcs", "url": "git@github.com:buguenocesar92/laravel-anonimizacion.git" }
+        { "type": "vcs", "url": "git@github-graneros:muni-graneros/laravel-anonimizacion.git" }
     ],
     "require": {
-        "buguenocesar92/laravel-anonimizacion": "^1.0"
+        "muni-graneros/laravel-anonimizacion": "^1.0"
     }
 }
 ```
 
 ```bash
-composer update buguenocesar92/laravel-anonimizacion
+composer update muni-graneros/laravel-anonimizacion
 php artisan vendor:publish --tag=anonimizacion-config
 ```
 
