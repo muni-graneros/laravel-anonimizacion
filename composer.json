@@ -1,5 +1,5 @@
 {
-    "name": "buguenocesar92/laravel-anonimizacion",
+    "name": "muni-graneros/laravel-anonimizacion",
     "description": "Anonimización de datos personales antes de enviarlos a servicios externos.",
     "type": "library",
     "license": "proprietary",
