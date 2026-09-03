@@ -25,6 +25,8 @@ return [
         ['email'], ['maria.gonzalez@correo.cl']],
     ['Soy Pedro, RUT 15.678.234-3, fono 987654321, correo pedro@mail.cl',
         ['rut', 'telefono', 'email'], ['15.678.234-3', '987654321', 'pedro@mail.cl']],
+    ['mi correo es juan912345678@gmail.com gracias',
+        ['email'], ['juan912345678@gmail.com']],
 
     // --- Casos que NO deben marcarse (falsos positivos) ---
     ['El monto a pagar es 12.345.678-9 según la boleta', [], []],

@@ -197,7 +197,7 @@ el RUT de una persona real) y publica la medición en cada corrida:
 |---|---|
 | RUT | 3/3 (100%) |
 | Teléfono | 3/3 (100%) |
-| Correo | 2/2 (100%) |
+| Correo | 3/3 (100%) |
 | Nombre | 0/2 (0%) |
 | Dirección | 0/2 (0%) |
 | Categoría sensible | 0/3 (0%) |

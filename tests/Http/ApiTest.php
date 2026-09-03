@@ -47,6 +47,25 @@ it('restaura de punta a punta para quien sí tiene el permiso', function () {
     expect($r->json('texto'))->toBe('RUT 12.345.678-5');
 });
 
+it('niega restaurar la bóveda de OTRO consumidor aunque quien pide tenga permiso de restaurar', function () {
+    // 'disc' no tiene permiso de /restaurar, pero SÍ puede /amordazar y crear
+    // su propia bóveda. 'licencias' tiene permiso de /restaurar, pero eso no
+    // lo habilita a leer la bóveda de un consumidor distinto: cada sistema
+    // solo puede recuperar lo que él mismo amordazó.
+    $amordazado = $this->withHeader('X-Service-Token', 'tok-disc')
+        ->postJson('/anonimizacion/amordazar', ['texto' => 'RUT 12.345.678-5'])
+        ->json();
+
+    $r = $this->withHeader('X-Service-Token', 'tok-lic')
+        ->postJson('/anonimizacion/restaurar', [
+            'texto' => $amordazado['texto_seguro'],
+            'boveda_id' => $amordazado['boveda_id'],
+        ]);
+
+    $r->assertStatus(403);
+    expect($r->getContent())->not->toContain('12.345.678-5');
+});
+
 it('expone /health sin token', function () {
     $this->getJson('/anonimizacion/health')
         ->assertOk()

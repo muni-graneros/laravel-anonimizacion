@@ -6,6 +6,7 @@ use Anonimizacion\Contratos\ClasificadorSensible;
 use Anonimizacion\Contratos\Detector;
 use Anonimizacion\Contratos\RegistroDeAuditoria;
 use Anonimizacion\Contratos\RepositorioDeBoveda;
+use Anonimizacion\Excepciones\BovedaAjena;
 use Anonimizacion\Excepciones\BovedaExpirada;
 
 class Anonimizador
@@ -27,7 +28,13 @@ class Anonimizador
         return $this->clasificador->categoriaDe($texto);
     }
 
-    public function amordazar(string $texto): Resultado
+    /**
+     * @param  ?string  $consumidor  Quién amordaza (el consumidor de la API).
+     *                               Queda grabado como dueño de la bóveda:
+     *                               nadie más va a poder restaurarla, aunque
+     *                               tenga permiso general de /restaurar.
+     */
+    public function amordazar(string $texto, ?string $consumidor = null): Resultado
     {
         // El veto va PRIMERO: si el texto trae dato sensible no sale, y no se
         // gasta trabajo ni se crea una bóveda que después habría que expirar.
@@ -51,8 +58,10 @@ class Anonimizador
         // revés, cada sustitución correría la posición de las siguientes.
         usort($hallazgos, fn (Hallazgo $a, Hallazgo $b) => $a->inicio <=> $b->inicio);
 
+        $hallazgos = $this->descartarSolapados($hallazgos);
+
         $nonce = bin2hex(random_bytes(2));
-        $boveda = new Boveda;
+        $boveda = new Boveda($consumidor);
         $numeros = [];
         $tipos = [];
         $marcadores = [];
@@ -85,11 +94,22 @@ class Anonimizador
      * SUBCONJUNTO de los de la bóveda: uno que el modelo haya inventado se
      * elimina, nunca se deja crudo ni se intenta adivinar a qué persona apunta.
      *
+     * @param  ?string  $consumidor  Quién pide restaurar. Debe coincidir con
+     *                               el que amordazó, o se rechaza aunque el
+     *                               llamador tenga permiso general de
+     *                               /restaurar: la bóveda de un consumidor
+     *                               no es la de otro.
+     *
      * @throws BovedaExpirada
+     * @throws BovedaAjena
      */
-    public function restaurar(string $respuesta, BovedaId $id): string
+    public function restaurar(string $respuesta, BovedaId $id, ?string $consumidor = null): string
     {
         $boveda = $this->boveda->recuperar($id);
+
+        if (! $boveda->perteneceA($consumidor)) {
+            throw BovedaAjena::paraId($id->valor);
+        }
 
         $this->auditoria->registrar('pii.restaurado', [
             'marcadores' => count($boveda->marcadores()),
@@ -100,6 +120,48 @@ class Anonimizador
             fn (array $c) => $boveda->resolver($c[0]) ?? '',
             $respuesta,
         ) ?? $respuesta;
+    }
+
+    /**
+     * Descarta hallazgos cuyo rango se solapa con uno ya aceptado: dos
+     * detectores pueden marcar el mismo tramo de texto (p. ej. un teléfono
+     * detectado DENTRO de un correo). Reemplazar ambos por separado corrompe
+     * el texto porque los offsets se calcularon sobre el string original.
+     *
+     * Requiere que $hallazgos venga ordenado por `inicio` ascendente. Cuando
+     * dos empiezan igual, se queda con el más largo (el que cubre más).
+     *
+     * @param  array<int, Hallazgo>  $hallazgos
+     * @return array<int, Hallazgo>
+     */
+    private function descartarSolapados(array $hallazgos): array
+    {
+        $aceptados = [];
+        $ultimo = null;
+        $finAceptado = -1;
+
+        foreach ($hallazgos as $hallazgo) {
+            $inicio = $hallazgo->inicio;
+            $fin = $hallazgo->inicio + $hallazgo->largo;
+
+            if ($ultimo !== null && $inicio < $finAceptado) {
+                // Se solapa con el último aceptado. Si es más largo (empieza
+                // igual pero cubre más), reemplaza al anterior; si no, se
+                // descarta.
+                if ($inicio === $ultimo->inicio && $hallazgo->largo > $ultimo->largo) {
+                    array_pop($aceptados);
+                    $aceptados[] = $ultimo = $hallazgo;
+                    $finAceptado = $fin;
+                }
+
+                continue;
+            }
+
+            $aceptados[] = $ultimo = $hallazgo;
+            $finAceptado = $fin;
+        }
+
+        return $aceptados;
     }
 
     /**

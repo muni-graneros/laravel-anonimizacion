@@ -5,6 +5,7 @@ namespace Anonimizacion\Http;
 use Anonimizacion\Anonimizador;
 use Anonimizacion\BovedaId;
 use Anonimizacion\Contratos\RegistroDeAuditoria;
+use Anonimizacion\Excepciones\BovedaAjena;
 use Anonimizacion\Metricas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,10 +29,11 @@ class AnonimizacionController
     public function amordazar(Request $request): JsonResponse
     {
         $datos = $request->validate(['texto' => ['required', 'string', 'max:20000']]);
+        $consumidor = $this->consumidorDe($request);
 
-        $this->metricas->contar($this->consumidorDe($request), 'amordazar');
+        $this->metricas->contar($consumidor, 'amordazar');
 
-        $resultado = $this->anonimizador->amordazar($datos['texto']);
+        $resultado = $this->anonimizador->amordazar($datos['texto'], $consumidor);
 
         return response()->json([
             'veredicto' => $resultado->veredicto->value,
@@ -73,9 +75,16 @@ class AnonimizacionController
             'ip_hash' => $this->hashDeIp((string) $request->ip()),
         ]);
 
-        return response()->json([
-            'texto' => $this->anonimizador->restaurar($datos['texto'], new BovedaId($datos['boveda_id'])),
-        ]);
+        try {
+            $texto = $this->anonimizador->restaurar($datos['texto'], new BovedaId($datos['boveda_id']), $consumidor);
+        } catch (BovedaAjena) {
+            // Mismo 403 que "sin permiso": no hay que distinguirle a quien
+            // pregunta si el id existe pero es de otro, o si directamente no
+            // tiene permiso de restaurar.
+            return response()->json(['error' => 'sin permiso para restaurar'], 403);
+        }
+
+        return response()->json(['texto' => $texto]);
     }
 
     public function health(): JsonResponse
