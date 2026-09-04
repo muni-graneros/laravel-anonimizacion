@@ -9,6 +9,7 @@ use Anonimizacion\Detectores\DetectorEmail;
 use Anonimizacion\Detectores\DetectorFolio;
 use Anonimizacion\Detectores\DetectorRut;
 use Anonimizacion\Detectores\DetectorTelefono;
+use Anonimizacion\Excepciones\ClasificadorAusente;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -39,17 +40,37 @@ class AnonimizacionServiceProvider extends ServiceProvider
             $app['cache']->store((string) config('anonimizacion.store_boveda')),
         ));
 
-        $this->app->bind(Anonimizador::class, fn ($app) => new Anonimizador(
-            [
-                new DetectorRut,
-                new DetectorTelefono,
-                new DetectorEmail,
-                new DetectorFolio((string) config('anonimizacion.patron_folio')),
-            ],
-            $app->make(RepositorioDeBoveda::class),
-            $app->make(ClasificadorSensible::class),
-            $app->make(RegistroDeAuditoria::class),
-        ));
+        $this->app->bind(Anonimizador::class, function ($app) {
+            $clasificador = $app->make(ClasificadorSensible::class);
+
+            // Un sistema que declara manejar datos sensibles y no enlazó un
+            // clasificador real NO arranca.
+            //
+            // El enlace por defecto nunca veta, y eso está bien para quien solo
+            // necesita tapar RUT, teléfono y correo. Pero discapacidad manda
+            // «credencial de discapacidad de mi hijo que tiene autismo» y salía
+            // el diagnóstico entero con solo el RUT tapado, mientras el README
+            // hablaba de fail-closed. Nada lo advertía: se instalaba el paquete
+            // y se creía cubierto.
+            //
+            // La comprobación necesita distinguir «revisé y no hay» de «no
+            // revisé», y por eso mira la CLASE enlazada, no lo que devuelve.
+            if (config('anonimizacion.datos_sensibles') && $clasificador instanceof SinClasificador) {
+                throw new ClasificadorAusente;
+            }
+
+            return new Anonimizador(
+                [
+                    new DetectorRut,
+                    new DetectorTelefono,
+                    new DetectorEmail,
+                    new DetectorFolio((string) config('anonimizacion.patron_folio')),
+                ],
+                $app->make(RepositorioDeBoveda::class),
+                $clasificador,
+                $app->make(RegistroDeAuditoria::class),
+            );
+        });
     }
 
     public function boot(): void

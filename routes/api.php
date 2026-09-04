@@ -1,10 +1,15 @@
 <?php
 
 use Anonimizacion\Http\AnonimizacionController;
+use Anonimizacion\Http\ForzarJson;
 use Anonimizacion\Http\VerificarTokenDeServicio;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('anonimizacion')->group(function () {
+// `ForzarJson` va en TODO el grupo, incluido /health: sin él, un fallo de
+// validación redirige (302) en vez de responder 422, y los consumidores de esta
+// API -n8n, curl, los micros de Python- mandan `Accept: */*`. Ver el docblock
+// del middleware.
+Route::prefix('anonimizacion')->middleware(ForzarJson::class)->group(function () {
     Route::get('health', [AnonimizacionController::class, 'health']);
 
     Route::middleware([VerificarTokenDeServicio::class, 'throttle:anonimizacion'])->group(function () {

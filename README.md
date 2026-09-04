@@ -4,6 +4,22 @@ Reemplaza los datos personales de un texto por marcadores antes de que salga
 hacia un servicio externo, y los reinserta al recibir la respuesta. El proveedor
 externo nunca ve el RUT, el teléfono ni el correo de la persona.
 
+> ### Lo que este paquete NO hace todavía
+>
+> **No detecta nombres, direcciones ni datos sensibles.** Tapa datos con forma
+> reconocible —RUT, teléfono, correo, folio— y eso es todo. Un texto como
+> «credencial de discapacidad de mi hijo, que tiene autismo» sale con el RUT
+> tapado y el diagnóstico entero a la vista.
+>
+> Si tu sistema maneja datos del artículo 2 letra g de la Ley 21.719 —salud,
+> situación de discapacidad, origen, creencias— pon `datos_sensibles => true` en
+> la configuración y enlaza tu propio `ClasificadorSensible`. Con esa bandera y
+> sin clasificador real, el paquete **se niega a arrancar**: es preferible a que
+> alguien lo instale creyendo que veta.
+>
+> El clasificador propio llega en el ciclo 1B. Hasta entonces, este paquete
+> reduce el riesgo legal; no lo elimina.
+
 Es un paquete neutral: lo consumen por igual los sistemas municipales de
 Graneros, la plataforma muni-kit y el ecosistema KraftDo. **No depende de
 `laravel-muni-shared`** a propósito, para que un producto no municipal no tenga

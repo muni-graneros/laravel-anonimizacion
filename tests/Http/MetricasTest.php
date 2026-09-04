@@ -6,7 +6,9 @@ it('el health informa versión y tiempo en pie, además de los tokens', function
     expect($r->json('servicio'))->toBe('anonimizacion')
         ->and($r->json('version'))->toBeString()
         ->and($r->json('segundos_en_pie'))->toBeInt()
-        ->and($r->json('tokens_cargados'))->toBe(2);
+        // `tokens_cargados` se quitó: publicaba sin token cuántos consumidores
+        // hay. Lo que informa ahora es si la bóveda responde.
+        ->and($r->json('boveda'))->toBe('ok');
 });
 
 it('expone métricas en formato Prometheus etiquetadas por consumidor', function () {

@@ -8,6 +8,7 @@ use Anonimizacion\Contratos\RegistroDeAuditoria;
 use Anonimizacion\Contratos\RepositorioDeBoveda;
 use Anonimizacion\Excepciones\BovedaAjena;
 use Anonimizacion\Excepciones\BovedaExpirada;
+use Anonimizacion\Excepciones\BovedaNoDisponible;
 
 class Anonimizador
 {
@@ -78,8 +79,19 @@ class Anonimizador
             $texto = substr_replace($texto, $marcadores[$i], $hallazgo->inicio, $hallazgo->largo);
         }
 
-        $id = BovedaId::nueva();
-        $this->boveda->guardar($id, $boveda);
+        // Sin hallazgos no hay nada que guardar, así que no se crea bóveda.
+        //
+        // Antes se creaba y se escribía siempre: en un chatbot la mayoría de los
+        // turnos no trae ningún dato personal, y cada uno pagaba una escritura
+        // cifrada en Redis para un mapeo vacío. Peor: si la conversación pasaba
+        // los 900 s del TTL, restaurar esa bóveda vacía lanzaba BovedaExpirada y
+        // rompía un turno que nunca tuvo un dato que proteger.
+        $id = null;
+
+        if ($hallazgos !== []) {
+            $id = BovedaId::nueva();
+            $this->guardarBoveda($id, $boveda);
+        }
 
         $this->auditoria->registrar('pii.amordazado', [
             'tipos' => array_keys($tipos),
@@ -94,6 +106,8 @@ class Anonimizador
      * SUBCONJUNTO de los de la bóveda: uno que el modelo haya inventado se
      * elimina, nunca se deja crudo ni se intenta adivinar a qué persona apunta.
      *
+     * @param  ?BovedaId  $id  Nulo cuando `amordazar()` no encontró nada: no hay
+     *                         bóveda que consultar y la respuesta va tal cual.
      * @param  ?string  $consumidor  Quién pide restaurar. Debe coincidir con
      *                               el que amordazó, o se rechaza aunque el
      *                               llamador tenga permiso general de
@@ -102,10 +116,15 @@ class Anonimizador
      *
      * @throws BovedaExpirada
      * @throws BovedaAjena
+     * @throws BovedaNoDisponible
      */
-    public function restaurar(string $respuesta, BovedaId $id, ?string $consumidor = null): string
+    public function restaurar(string $respuesta, ?BovedaId $id, ?string $consumidor = null): string
     {
-        $boveda = $this->boveda->recuperar($id);
+        if ($id === null) {
+            return $respuesta;
+        }
+
+        $boveda = $this->recuperarBoveda($id);
 
         if (! $boveda->perteneceA($consumidor)) {
             throw BovedaAjena::paraId($id->valor);
@@ -120,6 +139,49 @@ class Anonimizador
             fn (array $c) => $boveda->resolver($c[0]) ?? '',
             $respuesta,
         ) ?? $respuesta;
+    }
+
+    /**
+     * Escribe la bóveda cortando la cadena de excepciones del store.
+     *
+     * El handler de Laravel registra `getTraceAsString()`, y el trace de PHP
+     * incluye los ARGUMENTOS de cada llamada salvo que el `php.ini` traiga
+     * `zend.exception_ignore_args=1`. El primer argumento de `amordazar()` es el
+     * texto completo del ciudadano: si la excepción de Redis se propaga tal
+     * cual, el día que Redis se cae el mensaje entero con el RUT sin tapar
+     * termina en `laravel.log` —justo lo que este paquete existe para evitar—.
+     *
+     * Por eso NO se encadena con `previous`: hacerlo volvería a traer el trace
+     * de abajo, con los argumentos incluidos. Del original se conserva solo el
+     * mensaje, que es lo único que hace falta para saber qué se rompió.
+     *
+     * @throws BovedaNoDisponible
+     */
+    private function guardarBoveda(BovedaId $id, Boveda $boveda): void
+    {
+        try {
+            $this->boveda->guardar($id, $boveda);
+        } catch (BovedaNoDisponible $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            throw new BovedaNoDisponible($e->getMessage());
+        }
+    }
+
+    /** @throws BovedaNoDisponible */
+    private function recuperarBoveda(BovedaId $id): Boveda
+    {
+        try {
+            return $this->boveda->recuperar($id);
+        } catch (BovedaExpirada|BovedaNoDisponible $e) {
+            // Las de este paquete se dejan pasar: sus mensajes solo llevan el id
+            // de bóveda, que no es dato personal, y el consumidor necesita poder
+            // distinguir «expiró» de «se cayó Redis». (BovedaAjena no entra acá:
+            // la lanza el llamador después, no el repositorio.)
+            throw $e;
+        } catch (\Throwable $e) {
+            throw new BovedaNoDisponible($e->getMessage());
+        }
     }
 
     /**

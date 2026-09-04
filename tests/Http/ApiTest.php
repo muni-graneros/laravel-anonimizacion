@@ -67,9 +67,13 @@ it('niega restaurar la bóveda de OTRO consumidor aunque quien pide tenga permis
 });
 
 it('expone /health sin token', function () {
+    // Sin `tokens_cargados`: cuántos sistemas consumen esta API es información
+    // de negocio, igual que las métricas, que sí están tras token. Ver
+    // RespuestaSiempreJsonTest para lo que /health sí comprueba ahora.
     $this->getJson('/anonimizacion/health')
         ->assertOk()
-        ->assertJson(['tokens_cargados' => 2]);
+        ->assertJson(['servicio' => 'anonimizacion'])
+        ->assertJsonMissingPath('tokens_cargados');
 });
 
 it('NO ARRANCA si la API está habilitada y no hay tokens', function () {

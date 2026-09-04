@@ -1,13 +1,29 @@
 name: CI
 
+# `develop` también, no solo `main`.
+#
+# El trabajo diario de este repo va a develop y el CI solo miraba main y las
+# PRs: los tres commits posteriores al tag v1.0.0 no pasaron por CI hasta el
+# merge. Un CI que solo mira la rama a la que ya llegó todo avisa tarde.
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 
 jobs:
   calidad:
     runs-on: ubuntu-latest
+
+    # El paquete se prueba en las versiones en las que de verdad corre.
+    #
+    # Estaba fijo en 8.3 mientras los sistemas que lo consumen están en 8.4 y
+    # 8.5: un fallo que solo aparece en la versión de producción no lo veía
+    # nadie. 8.3 se mantiene porque es el mínimo que declara composer.json, y
+    # dejar de probarlo convertiría ese `^8.3` en una promesa sin respaldo.
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4', '8.5']
 
     # La suite corre DOS veces: contra el store de array y contra este Redis.
     # El array no expira de verdad ni serializa a texto, así que por sí solo
@@ -29,7 +45,7 @@ jobs:
       - name: Preparar PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: ${{ matrix.php }}
           extensions: redis
           coverage: none
 

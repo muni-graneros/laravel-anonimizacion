@@ -9,6 +9,7 @@ use Anonimizacion\Excepciones\BovedaAjena;
 use Anonimizacion\Metricas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
 class AnonimizacionController
@@ -61,7 +62,12 @@ class AnonimizacionController
             'texto' => ['required', 'string', 'max:20000'],
             // El id va a la clave del store: solo se acepta el formato que
             // genera el paquete (32 hexadecimales), nunca texto libre.
-            'boveda_id' => ['required', 'string', 'regex:/^[0-9a-f]{32}$/'],
+            //
+            // Es opcional porque `amordazar()` devuelve `boveda_id: null`
+            // cuando el texto no traía ningún dato personal: no hay bóveda que
+            // consultar y la respuesta vuelve tal cual. Exigirlo obligaría al
+            // consumidor a inventarse un id para cerrar el ciclo.
+            'boveda_id' => ['nullable', 'string', 'regex:/^[0-9a-f]{32}$/'],
         ]);
 
         $consumidor = $this->consumidorDe($request);
@@ -72,11 +78,12 @@ class AnonimizacionController
         // personal, así que va un hash con sal (la APP_KEY), no la dirección.
         $this->auditoria->registrar('pii.acceso_api', [
             'consumidor' => $consumidor,
-            'ip_hash' => $this->hashDeIp((string) $request->ip()),
+            'ip_hash' => VerificarTokenDeServicio::hashDeIp((string) $request->ip()),
         ]);
 
         try {
-            $texto = $this->anonimizador->restaurar($datos['texto'], new BovedaId($datos['boveda_id']), $consumidor);
+            $id = isset($datos['boveda_id']) ? new BovedaId($datos['boveda_id']) : null;
+            $texto = $this->anonimizador->restaurar($datos['texto'], $id, $consumidor);
         } catch (BovedaAjena) {
             // Mismo 403 que "sin permiso": no hay que distinguirle a quien
             // pregunta si el id existe pero es de otro, o si directamente no
@@ -87,14 +94,50 @@ class AnonimizacionController
         return response()->json(['texto' => $texto]);
     }
 
+    /**
+     * Sonda del servicio.
+     *
+     * Toca la bóveda de verdad. Antes solo respondía 200 sin mirar el store: con
+     * Redis apagado decía «sano» mientras la única operación que importa
+     * -guardar y recuperar- iba a fallar. Una sonda que da verde en esa
+     * situación es peor que no tener sonda, porque Uptime Kuma no avisa y nadie
+     * mira.
+     *
+     * Y ya no publica `tokens_cargados`: cuántos sistemas consumen esta API es
+     * información de negocio, igual que las métricas, que sí están tras token.
+     */
     public function health(): JsonResponse
     {
+        try {
+            $store = Cache::store((string) config('anonimizacion.store_boveda'));
+
+            // Valor distinto en cada sonda: si se leyera un valor fijo, una
+            // clave que quedó de la corrida anterior daría «ok» aunque la
+            // escritura de ahora no haya llegado a ningún lado.
+            //
+            // Y va como TEXTO, no como número: el store de Redis devuelve los
+            // numéricos tal como los guardó -o sea, como string-, así que
+            // comparar contra un int daba «caida» con Redis sano. En el store de
+            // array volvía como int y el test pasaba: lo encontró
+            // `tools/pest-redis.sh`, que existe exactamente para esto.
+            $testigo = bin2hex(random_bytes(8));
+            $store->put('anon:health', $testigo, 5);
+            $boveda = $store->get('anon:health') === $testigo ? 'ok' : 'caida';
+        } catch (\Throwable $e) {
+            // El motivo NO va en la respuesta: puede traer el host y el puerto
+            // del store. Va al log, que ya es de quien opera el servicio.
+            $this->auditoria->registrar('anonimizacion.health_boveda_caida', [
+                'motivo' => $e->getMessage(),
+            ]);
+            $boveda = 'caida';
+        }
+
         return response()->json([
             'servicio' => 'anonimizacion',
             'version' => self::VERSION,
             'segundos_en_pie' => (int) (microtime(true) - (self::$inicio ?? microtime(true))),
-            'tokens_cargados' => count(VerificarTokenDeServicio::cargarTokens()),
-        ]);
+            'boveda' => $boveda,
+        ], $boveda === 'ok' ? 200 : 503);
     }
 
     public function metrics(): Response
@@ -109,15 +152,5 @@ class AnonimizacionController
         $consumidor = $request->attributes->get('consumidor');
 
         return is_string($consumidor) ? $consumidor : 'desconocido';
-    }
-
-    /**
-     * Hash con sal de la IP: permite correlacionar accesos del mismo origen sin
-     * almacenar la dirección, que es dato personal. La sal es la APP_KEY, así
-     * que el hash no se puede cruzar entre instalaciones distintas.
-     */
-    private function hashDeIp(string $ip): string
-    {
-        return substr(hash_hmac('sha256', $ip, (string) config('app.key')), 0, 16);
     }
 }
