@@ -59,6 +59,16 @@ feature, es señal de que el fix va en el consumidor, no acá.
 `[No publicado]` ya tiene contenido — **no está en ningún tag todavía**: no
 asumir que lo de esa sección ya llegó a un consumidor.
 
+## Sesiones en paralelo (Claude Code / Gemini Antigravity / terminal manual)
+
+Varias sesiones de Claude Code y Gemini Antigravity trabajan sobre las mismas
+copias de trabajo de `~/Dev`, esta incluida. Antes de tocar nada:
+`/home/cesar/Dev/scripts/sesion estado .`. Al empezar: `sesion tomar . "qué vas a
+hacer"`. Al terminar: `sesion soltar .`. No bloquea — es un aviso — pero si el
+marcador es ajeno, mirá `git log --oneline -5` y `git status` antes de cualquier
+`reset`/checkout, y commiteá siempre con `git commit --only -- <rutas>` (el índice
+es compartido). Detalle y motivo en `~/Dev/CLAUDE.md`.
+
 ## Comandos reales
 
 - `composer test` → `pest` (suite completa contra el store de array).
