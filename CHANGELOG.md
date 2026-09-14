@@ -5,7 +5,11 @@ versionado según [SemVer](https://semver.org/lang/es/).
 
 ## [No publicado]
 
-Todo lo de abajo está en `develop` y **no** en el tag `v1.0.0`. Se anota acá y no
+Sin cambios de código desde `v1.1.0`.
+
+## [1.1.0] — 2026-09-03
+
+Todo lo de abajo está en el tag `v1.1.0` y **no** en `v1.0.0`. Se anota acá y no
 dentro de `[1.0.0]` porque el CHANGELOG de esa versión se reescribió después de
 publicarla: quien instalara `^1.0` recibía el tag —sin `CoberturaTest` ni la
 sección «Cobertura medida» del README— y leía un CHANGELOG que prometía otra
@@ -79,11 +83,6 @@ clasificador de dato sensible llegan en el ciclo 1B.
   y cantidades, nunca valores; los accesos por API llevan `ip_hash` con sal.
 - `composer test:redis`: la suite contra un Redis desechable, con verificación de
   que realmente corrió contra el motor.
-- **Corpus de evaluación y medición de cobertura** (`tests/CoberturaTest.php`):
-  publica en cada corrida cuánto detecta el motor por tipo. Línea base: RUT,
-  teléfono y correo al 100%, cero falsos positivos; nombres, direcciones y
-  categoría sensible al 0%, que es el ciclo 1B. Todos los datos del corpus son
-  inventados.
 
 ### Notas de despliegue
 
