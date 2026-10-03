@@ -6,9 +6,29 @@ name: CI
 # PRs: los tres commits posteriores al tag v1.0.0 no pasaron por CI hasta el
 # merge. Un CI que solo mira la rama a la que ya llegó todo avisa tarde.
 on:
+  workflow_dispatch:
   push:
-    branches: [main, develop]
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'manuales/**'
+      - 'videos/**'
+      - '**.mp4'
+      - '**.webm'
   pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'manuales/**'
+      - 'videos/**'
+      - '**.mp4'
+      - '**.webm'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   calidad:
