@@ -93,6 +93,10 @@ jobs:
           ANONIMIZACION_REDIS_PORT: 6379
         run: vendor/bin/pest
 
+      # ubuntu-latest trae estos clientes de fábrica; la VM del Xeon puede no tenerlos.
+      - name: Clientes de MariaDB y Redis
+        run: command -v mysqladmin >/dev/null && command -v redis-cli >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq mariadb-client redis-tools; }
+
       - name: Verificar que sí corrió contra Redis
         # Sin esto el paso anterior podría estar corriendo contra el array y
         # felicitándose. Si corrió de verdad, quedaron bóvedas escritas.
