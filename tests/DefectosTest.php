@@ -54,6 +54,23 @@ it('rechaza un boveda_id con formato inválido en vez de usarlo como clave', fun
         ->assertStatus(422);
 });
 
+it('un hallazgo anidado dentro de otro no corrompe el texto seguro ni la restauración', function () {
+    // El teléfono "912345678" queda embebido dentro del correo
+    // "juan912345678@gmail.com": ambos detectores lo marcan y sus rangos se
+    // solapan. Sin filtrar el solapamiento, el reemplazo en dos pasadas corta
+    // el texto en offsets que ya no corresponden al string alterado.
+    $anon = app(Anonimizador::class);
+    $r = $anon->amordazar('mi correo es juan912345678@gmail.com gracias');
+
+    expect($r->textoSeguro)->not->toContain('gmail.com')
+        ->and($r->textoSeguro)->not->toContain('juan912345678');
+
+    $marcador = $r->textoSeguro;
+    $respuesta = $anon->restaurar($marcador, $r->boveda);
+
+    expect($respuesta)->toBe('mi correo es juan912345678@gmail.com gracias');
+});
+
 it('el límite de peticiones cuenta por consumidor y no por IP', function () {
     // Todos los sistemas del ecosistema salen por la misma IP interna: con un
     // throttle por IP, un consumidor ruidoso deja sin cuota a los demás.

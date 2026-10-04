@@ -35,10 +35,10 @@ class BovedaEnCache implements RepositorioDeBoveda
             throw BovedaExpirada::paraId($id->valor);
         }
 
-        /** @var array<string, string> $mapa */
-        $mapa = json_decode($this->cifrador->decryptString($cifrado), true, 512, JSON_THROW_ON_ERROR);
+        /** @var array{consumidor?: ?string, mapa?: array<string, string>} $datos */
+        $datos = json_decode($this->cifrador->decryptString($cifrado), true, 512, JSON_THROW_ON_ERROR);
 
-        return Boveda::desdeArray($mapa);
+        return Boveda::desdeArray($datos);
     }
 
     private function clave(BovedaId $id): string

@@ -1,13 +1,55 @@
 name: CI
 
+# `develop` también, no solo `main`.
+#
+# El trabajo diario de este repo va a develop y el CI solo miraba main y las
+# PRs: los tres commits posteriores al tag v1.0.0 no pasaron por CI hasta el
+# merge. Un CI que solo mira la rama a la que ya llegó todo avisa tarde.
 on:
+  workflow_dispatch:
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'manuales/**'
+      - 'videos/**'
+      - '**.mp4'
+      - '**.webm'
   pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'manuales/**'
+      - 'videos/**'
+      - '**.mp4'
+      - '**.webm'
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Runner de los jobs de prueba: VMs efímeras del Xeon (etiqueta xeon-ci, gratis; una VM limpia
+# por job, sin red hacia la LAN ni Tailscale) si la variable de repositorio RUNNER_CI vale
+# `xeon`; si no, `ubuntu-latest` de GitHub. Dependabot y las PR desde forks van SIEMPRE a
+# GitHub: su código no corre en el Xeon. Volver a GitHub es `gh variable delete RUNNER_CI`,
+# sin tocar este archivo. Runbook y modelo de amenaza: seguridad-graneros,
+# docs/CI-RUNNERS-XEON.md.
 jobs:
   calidad:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_CI == 'xeon' && github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","xeon-ci"]') || 'ubuntu-latest' }}
+
+    # El paquete se prueba en las versiones en las que de verdad corre.
+    #
+    # Estaba fijo en 8.3 mientras los sistemas que lo consumen están en 8.4 y
+    # 8.5: un fallo que solo aparece en la versión de producción no lo veía
+    # nadie. 8.3 se mantiene porque es el mínimo que declara composer.json, y
+    # dejar de probarlo convertiría ese `^8.3` en una promesa sin respaldo.
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4', '8.5']
 
     # La suite corre DOS veces: contra el store de array y contra este Redis.
     # El array no expira de verdad ni serializa a texto, así que por sí solo
@@ -29,7 +71,7 @@ jobs:
       - name: Preparar PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: ${{ matrix.php }}
           extensions: redis
           coverage: none
 
@@ -50,6 +92,10 @@ jobs:
           ANONIMIZACION_REDIS_HOST: 127.0.0.1
           ANONIMIZACION_REDIS_PORT: 6379
         run: vendor/bin/pest
+
+      # ubuntu-latest trae estos clientes de fábrica; la VM del Xeon puede no tenerlos.
+      - name: Clientes de MariaDB y Redis
+        run: command -v mysqladmin >/dev/null && command -v redis-cli >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq mariadb-client redis-tools; }
 
       - name: Verificar que sí corrió contra Redis
         # Sin esto el paso anterior podría estar corriendo contra el array y

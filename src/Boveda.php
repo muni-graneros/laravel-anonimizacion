@@ -13,6 +13,14 @@ final class Boveda implements JsonSerializable
     /** @var array<string, string> */
     private array $mapa = [];
 
+    /**
+     * @param  ?string  $consumidor  Quién la creó (el token de servicio que
+     *                               llamó a /amordazar). Null cuando el
+     *                               paquete se usa como librería PHP sin la
+     *                               API: ahí no hay consumidor que comprobar.
+     */
+    public function __construct(private readonly ?string $consumidor = null) {}
+
     public function agregar(string $marcador, string $valor): void
     {
         $this->mapa[$marcador] = $valor;
@@ -29,17 +37,26 @@ final class Boveda implements JsonSerializable
         return array_keys($this->mapa);
     }
 
-    /** @return array<string, string> */
-    public function aArray(): array
+    /**
+     * ¿Puede $consumidor restaurar esta bóveda? Sin dueño registrado (uso
+     * como librería, sin pasar por la API) no hay nada que comprobar.
+     */
+    public function perteneceA(?string $consumidor): bool
     {
-        return $this->mapa;
+        return $this->consumidor === null || $this->consumidor === $consumidor;
     }
 
-    /** @param array<string, string> $mapa */
-    public static function desdeArray(array $mapa): self
+    /** @return array{consumidor: ?string, mapa: array<string, string>} */
+    public function aArray(): array
     {
-        $boveda = new self;
-        $boveda->mapa = $mapa;
+        return ['consumidor' => $this->consumidor, 'mapa' => $this->mapa];
+    }
+
+    /** @param array{consumidor?: ?string, mapa?: array<string, string>} $datos */
+    public static function desdeArray(array $datos): self
+    {
+        $boveda = new self($datos['consumidor'] ?? null);
+        $boveda->mapa = $datos['mapa'] ?? [];
 
         return $boveda;
     }

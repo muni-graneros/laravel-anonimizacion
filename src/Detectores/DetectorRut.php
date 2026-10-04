@@ -7,7 +7,11 @@ use Anonimizacion\Hallazgo;
 
 class DetectorRut implements Detector
 {
-    private const PATRON = '/\b(\d{1,2}(?:\.\d{3}){2}|\d{7,8})-([\dkK])\b/u';
+    // El guión es opcional: en la práctica la gente lo tipea corrido tanto en
+    // el formato con puntos ("12.345.6785") como en el plano ("123456785").
+    // El único filtro contra falsos positivos sigue siendo el dígito
+    // verificador, no el separador.
+    private const PATRON = '/\b(\d{1,2}(?:\.\d{3}){2}|\d{7,8})-?([\dkK])\b/u';
 
     public function tipo(): string
     {
