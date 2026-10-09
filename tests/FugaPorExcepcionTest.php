@@ -61,7 +61,7 @@ it('el texto del ciudadano no aparece en el trace de la excepción', function ()
     } catch (BovedaNoDisponible $e) {
         $rastro = $e->getTraceAsString().' '.$e->getMessage();
 
-        expect($rastro)->not->toContain('12.345.678-5', 'el RUT quedó en el trace de la excepción')
+        expect(str_contains($rastro, '12.345.678-5'))->toBeFalse('el RUT quedó en el trace de la excepción')
             ->and($rastro)->not->toContain('mi mamá');
     } finally {
         @ini_set('zend.exception_ignore_args', (string) $original);
