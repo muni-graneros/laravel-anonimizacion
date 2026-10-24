@@ -78,6 +78,9 @@ jobs:
       - name: Instalar dependencias
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      - name: Auditoría de dependencias (composer audit)
+        run: composer audit --format=plain
+
       - name: Estilo (Pint)
         run: vendor/bin/pint --test
 
